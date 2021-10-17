@@ -1,0 +1,37 @@
+// Picard iteration for a nonlinear elliptic PDE 
+// 1. Pre-processing
+// 1.1.Mesh
+int N=64;
+real R=1.; // radius
+border C(t=0.,2.*pi){x=R*cos(t);y=R*sin(t);label=1;};
+mesh Th=buildmesh(C(N));
+plot(Th,wait=1);
+// 1.2.FE space and functions
+fespace Vh(Th,P1);
+real DBC=5.; // Dirichlet BC
+Vh uh, uh0=DBC, V=uh0, vh;
+Vh uex=DBC+sin((x ^ 2 + y ^ 2 - 1));
+Vh f=-0.4e1 * sin((x ^ 2 + y ^ 2 - 1)) * (x ^ 2) + 0.4e1 * cos((x ^ 2 + y ^ 2 - 1)) - 0.4e1 * sin((x ^ 2 + y ^ 2 - 1)) * (y ^ 2) - (DBC + sin((x ^ 2 + y ^ 2 - 1))) ^ 2;
+macro Grad(u)[dx(u),dy(u)]//
+// 2. Problem definition
+problem ELLNL(uh,vh) = 
+		- int2d(Th)(Grad(uh)'*Grad(vh))  // bilinear term
+		- int2d(Th) ( uh*V*vh )          // non linear term
+		- int2d(Th)( f*vh )				 // right hand side
+		+ on(1,uh=DBC);					 // Dirichlet B.C.
+// 3. Solution by Picard iteration loop
+real err=1.; // for the convergence
+real L2error, errtol=1.e-6;
+int iter=1,  maxiter=50;
+while (iter <= maxiter && err >= errtol){
+	ELLNL;
+	err=sqrt(int2d(Th)((uh-V)^2));
+    iter +=1; 
+	V=uh;  		// update
+	cout<<err<<endl;
+}
+// 4. Post-processing
+L2error = sqrt(int2d(Th)((uh-uex)^2));
+cout << "L2error  = "<<  L2error <<endl;
+cout << "No. of iterations for convergence = "<< iter << endl;
+plot(uh,wait=1);

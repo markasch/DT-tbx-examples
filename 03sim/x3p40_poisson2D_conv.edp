@@ -1,0 +1,34 @@
+// 1. Pre-processing
+// 1.1.Mesh
+int n=25;
+mesh Th=square(n,n);
+plot(Th);
+// 1.2.FE space and functions
+fespace Vh(Th,P1);
+Vh uh, vh;
+// 1.3. Parameters
+//      RHS
+func f=-1.0*(-sin(5*pi*x*(1-x))*pow(5*pi*(1-x)-5*pi*x,2)*sin(4*pi*y*(1-y))
+    -10*cos(5*pi*x*(1-x))*pi*sin(4*pi*y*(1-y))
+    -sin(5*pi*x*(1-x))*sin(4*pi*y*(1-y))*pow(4*pi*(1-y)-4*pi*y,2)
+    -8*sin(5*pi*x*(1-x))*cos(4*pi*y*(1-y))*pi);
+//      Dirichlet BC
+func g=0;
+// 2. Problem definition
+problem poisson(uh,vh) = int2d(Th)(dx(uh)*dx(vh)+dy(uh)*dy(vh))
+                         - int2d(Th)(f*vh)
+                         + on(1,2,3,4,uh=g) ;
+// 3. Assemble and Solve
+poisson ;
+// 4. Post-processing
+plot(uh, fill=1, value=1);
+// Error Analysis
+// - exact solution
+func utrue=sin(5*pi*x*(1-x))*sin(4*pi*y*(1-y));
+func utruex=cos(5*pi*x*(1-x))*(5*pi*(1-x)-5*pi*x)*sin(4*pi*y*(1-y));
+func utruey=sin(5*pi*x*(1-x))*cos(4*pi*y*(1-y))*(4*pi*(1-y)-4*pi*y);
+// Errors in norm 0 (L2) and 1 (H1)
+real ul2 = sqrt(int2d(Th)((utrue-uh)^2));
+real uh1 = sqrt(int2d(Th)(ul2^2 + (utruex-dx(uh))^2+(utruey-dy(uh))^2));
+cout << "Erreur u L^2 = " << ul2 << endl;
+cout << "Erreur u H^1 = " << uh1 << endl;

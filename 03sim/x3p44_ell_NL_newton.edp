@@ -1,0 +1,49 @@
+verbosity = 0.;
+// Newton iteration for a nonlinear elliptic PDE 
+// 1. Pre-processing
+// 1.1.Mesh
+int I=40;
+mesh Th=square(I,I);
+// 1.2.FE space and functions
+fespace Vh(Th,P1);
+Vh uh, vh, duh, uhk;
+Vh f=0;
+// 1.3. Parameters
+int m=2;
+macro  q(u)[(1+u)^m]//
+macro dq(u)[m*(1+u)^(m-1)]//
+func utrue= ( (2^(m+1)-1.0)*x +1.0 )^(1.0/(m+1.0))-1.0;
+macro Grad(u)[dx(u),dy(u)]//
+// 2. Problem definition
+// initial guess with q(u)=1
+problem ELLNL0(uh,vh) = 
+		- int2d(Th)(Grad(uh)'*Grad(vh))  // bilinear term
+		- int2d(Th)( f*vh )				 // right hand side
+		+ on(4,uh=0)   // Dirichlet BC
+        + on(2,uh=1);  // Dirichlet BC, du/dn=0 elsewhere			 
+problem ELLNL(duh,vh) = 
+		- int2d(Th)(q(uhk)*Grad(duh)'*Grad(vh)) 
+        - int2d(Th)(dq(uhk)*duh*Grad(uhk)'*Grad(vh))  // bilinear term
+        - int2d(Th) (q(uhk)*Grad(uhk)'*Grad(vh))
+		- int2d(Th)( f*vh )				 // right hand side
+		+ on(4,duh=0)   // Dirichlet BC
+        + on(2,duh=0);  // Dirichlet BC, du/dn=0 elsewhere			 
+// 3. Solution by Picard iteration loop
+ELLNL0;
+uhk=uh; // initial guess
+real err=1.0, errtol=1.0e-6; // for the convergence
+real L2error; 
+int iter=1, maxiter=25;
+while (iter <= maxiter && err >= errtol){
+	ELLNL;
+    err=sqrt(int2d(Th)((duh)^2)); //incremental error
+    uh = uhk + duh; // Newton update
+	uhk=uh;
+	cout<<"("<<iter<<") "<<err<<endl;
+	iter +=1;}
+// 4. Post-processing
+L2error = sqrt( int2d(Th)((uh-utrue)^2))/int2d(Th)((utrue)^2);
+cout << "L2utrue  = "<<  int2d(Th)((utrue)^2) << endl;
+cout << "L2error  = "<<  L2error <<endl;
+cout << "No. of iterations for convergence = "<< iter-1 << endl;
+plot(uh,wait=1,value=1);
