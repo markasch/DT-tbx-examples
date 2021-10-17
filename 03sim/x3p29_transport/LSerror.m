@@ -1,0 +1,1 @@
+%--- LSerror ---%function y = LSerror(method,J,h,E)% Estimate order of accuracy from least squares fit:Ap = ones(J,2);Ap(:,2) = log(h);bp = log(E);Kp = Ap\bp;K = Kp(1);p = Kp(2);disp(sprintf('Method:  %s',method))disp(sprintf('Least squares fit is E(h) = %g * h^%g',exp(K),p))disp(' ')y = 1;end
