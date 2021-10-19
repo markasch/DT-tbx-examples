@@ -1,0 +1,92 @@
+---
+title: "SVM on IRIS data"
+output:
+  html_document: default
+  pdf_document: 
+    keep_tex: yes
+    highlight: tango
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Load the `iris` data and divide the dataset into a training and a test set (ratio 80/20).
+
+```{r, warning=FALSE}
+library(caTools) # needed for sample.split
+library(ggplot2) # needed for nicer graphics
+library(GGally)  # needed for ggpairs
+library(e1071)   # needed for the SVM itself
+
+set.seed(41)        # to make it reproducible
+
+dataset <- iris
+str(dataset)
+summary(dataset)
+
+split        = sample.split(dataset$Species, SplitRatio = .8)
+training_set = subset(dataset, split == TRUE)
+test_set     = subset(dataset, split == FALSE)
+
+nrow(training_set)
+nrow(test_set)
+```
+
+We have 120 data rows on which to train the model, and 30 rows on which to subsequently test it.
+
+Look at the training set more closely, using the plot command `ggpairs`.
+
+```{r}
+ggpairs(training_set, ggplot2::aes(colour = Species, alpha = 0.4))
+```
+
+This improved pairs-plot contains a large amount of very useful information.
+
+- From the histograms in the bottom 3 rows of the chart of `Petal.length` (3rd column) and `Petal.width` (4th column) we observe a clear separation of the Setosa species.
+- However, there is an overlap of the Versicolor and Virginica species. 
+- If we look at the scatterplots of `Sepal.Length` vs `Petal.Length` (row 3, column 2) and `Petal.Width` vs `Petal.Length` (row 4, column 3), we can distinctly see a seperator that can be drawn between the groups of species.
+
+Conclusion from the exploratory data analysis:  we can use only `Petal.Width` and `Petal.Length` as parameters for a good model.
+
+We will create two models:
+
+1. containing all 4 parameters,
+2. containing only the 2 parameters `Petal.Width` and `Petal.Length`, 
+
+and then compare their performances.
+
+## Scale the features and fit the models
+
+```{r}
+training_set[,1:4] = scale(training_set[,1:4])
+test_set[,1:4]     = scale(test_set[,1:4])
+# model with ALL parameters:
+classifier1 = svm(formula = Species~., data = training_set, 
+                  type = 'C-classification', kernel = 'radial')
+# 2-parameter model:
+classifier2 = svm(formula = Species~ Petal.Width + Petal.Length, data = training_set, 
+                  type = 'C-classification', kernel = 'radial')
+```
+
+## Prediction and accuracy evaluation
+
+We compute the prdiction accuracy directly on the test set.
+
+```{r}
+test_pred1 = predict(classifier1, type = 'response', newdata = test_set[-5])
+test_pred2 = predict(classifier2, type = 'response', newdata = test_set[-5])
+
+# Compute the confusion matrices
+cm1 = table(test_set[,5], test_pred1)
+cm2 = table(test_set[,5], test_pred2)
+cm1 # Confusion Matrix for all parameters
+cm2 # Confusion Matrix for 2-parameter model (Petal Length and Petal Width)
+```
+
+## Conclusion
+
+The accuracy of both models is excellent. We conclude that the 2-parameter model suffices.
+

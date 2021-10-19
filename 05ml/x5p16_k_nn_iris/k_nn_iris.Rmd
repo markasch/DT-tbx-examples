@@ -1,0 +1,180 @@
+---
+title: "k-nn Classifier for iris data"
+output:
+  pdf_document:
+    keep_tex: yes
+  html_notebook: default
+  html_document:
+    df_print: paged
+---
+
+k-nn classifier for `iris` data
+
+```{r}
+# Read in `iris` data
+iris <- read.csv(url("http://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"), header = FALSE) 
+# Print first lines
+head(iris)
+# Add column names
+names(iris) <- c("Sepal.Length", "Sepal.Width", "Petal.Length", "Petal.Width", "Species")
+# Check the result
+head(iris)
+```
+
+Scatter plots, by species
+```{r}
+library(ggplot2)
+ggplot(iris, aes(x=Sepal.Length, y=Sepal.Width, shape =Species, color=Species)) +
+  geom_point()
+```
+There is a good correlation for Setosa.
+
+Look at petals.
+
+```{r}
+ggplot(iris, aes(x=Petal.Length, y=Petal.Width, shape =Species, color=Species)) +
+  geom_point()
+```
+
+All three species have positive correlations. We look at these more closely.
+
+```{r}
+# Overall correlation `Petal.Length` and `Petal.Width`
+cor(iris$Petal.Length, iris$Petal.Width)
+# Return values of `iris` levels 
+x=levels(as.factor(iris$Species))
+# Print Setosa correlation matrix
+print(x[1])
+cor(iris[iris$Species==x[1],1:4])
+# Print Versicolor correlation matrix
+print(x[2])
+cor(iris[iris$Species==x[2],1:4])
+# Print Virginica correlation matrix
+print(x[3])
+cor(iris[iris$Species==x[3],1:4])
+```
+
+Check the repartitioning of the samples among the species. 
+
+```{r}
+# Division of `Species`
+table(iris$Species) 
+# Percentage division of `Species`
+round(prop.table(table(iris$Species)) * 100, digits = 1)
+```
+
+Summary statistics:
+
+```{r}
+# Summary overview of `iris`
+summary(iris) 
+# Refined summary overview
+summary(iris[c("Petal.Width", "Sepal.Width")])
+
+```
+
+To use $k$-nn, we must load the `class` library
+
+```{r}
+library(class)
+```
+
+Though not strictly necessary here, we should normmalize the data before applying $k$-nn. 
+
+```{r}
+# Build your own `normalize()` function
+normalize <- function(x) {
+  num <- x - min(x)
+  denom <- max(x) - min(x)
+  return (num/denom)
+}
+# Normalize the `iris` data
+iris_norm <- as.data.frame(lapply(iris[1:4], normalize))
+# Summarize `iris_norm`
+summary(iris_norm)
+```
+
+The next important step is to divide the data into training and test sets. We use the  function `sample` after an initialization of the random number seed.
+```{r}
+set.seed(12345)
+ind <- sample(2, nrow(iris), replace=TRUE, prob=c(0.67, 0.33))
+# Extract training set
+iris.training <- iris[ind==1, 1:4]
+# Inspect training set
+head(iris.training)
+# Extract test set
+iris.test <- iris[ind==2, 1:4]
+# Inspect test set
+head(iris.test)
+```
+
+Now put the corresponding labels into two vectors.
+
+```{r}
+# Extract `iris` training labels
+iris.trainLabels <- iris[ind==1,5]
+# Inspect result
+#print(iris.trainLabels)
+# Extract `iris` test labels
+iris.testLabels <- iris[ind==2, 5]
+# Inspect result
+#print(iris.testLabels)
+```
+
+We are ready to build the classifier.
+```{r}
+# Build the model
+iris_pred <- knn(train = iris.training, test = iris.test, cl = iris.trainLabels, k=3)
+# Inspect the result `iris_pred`
+head(iris_pred)
+```
+
+But we need to evaluate the model for its precision by comparing observed and predicted classes in the test set.
+```{r}
+# Put `iris.testLabels` in a data frame
+irisTestLabels <- data.frame(iris.testLabels)
+# Merge `iris_pred` and `iris.testLabels` 
+merge <- data.frame(iris_pred, iris.testLabels)
+# Specify column names for `merge`
+names(merge) <- c("Predicted Species", "Observed Species")
+# Inspect `merge` 
+head(merge)
+```
+It is easier to inspect using a confusion matrix. We will use 
+
+- the simplest version, and a 
+- more sophisticated table from the library `gmodels`
+
+```{r}
+table(iris_pred,iris.testLabels)
+library(gmodels)
+CrossTable(x = iris.testLabels, y = iris_pred, prop.chisq=FALSE)
+```
+
+Alternatively, we can use the comprehensive `caret` library for classification and regression training.
+```{r}
+library(caret)
+library(e1071)
+# Create index to split based on labels  
+index <- createDataPartition(iris$Species, p=0.75, list=FALSE)
+# Subset training set with index
+iris.training <- iris[index,]
+# Subset test set with index
+iris.test <- iris[-index,]
+# Overview of the 237 algorithms supported by caret
+#names(getModelInfo())
+# Train a model using k-nn
+model_knn <- train(iris.training[, 1:4], iris.training[, 5], method='knn')
+```
+
+With the trained model, we can now predict the test lablels and check the accuracy.
+
+```{r}
+# Predict the labels of the test set
+predictions<-predict(object=model_knn,iris.test[,1:4])
+# Evaluate the predictions
+table(predictions)
+# Confusion matrix 
+confusionMatrix(as.factor(predictions),as.factor(iris.test[,5]))
+```
+

@@ -1,0 +1,36 @@
+---
+output:
+  bookdown::pdf_book:
+    keep_tex: yes
+---
+
+Load the libraries required for plotting and SVM.
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)    # for ggplot2, dplyr
+library(e1071)        # for svm() function
+```
+
+## Regression using SVMs
+Load the  lidar data frame that has $221$ observations from a light detection and ranging (LIDAR) experiment. In practice, the R code is  unchanged from the classification context. We use a radial kernel and standard cross-validation, then extract the best model.
+
+```{r}
+data('lidar', package='SemiPar')
+
+ctrl <- tune.control(
+  sampling='cross',    # Cross-validation (the default)
+  cross=10,            # Number of folds (default = 10)
+  nrepeat=5)           # Number of repeats (default is 1) 
+train.grid <- list(cost=2^(-2:5), gamma=2^seq(-1, 1, by=.5))
+
+tuned <- tune(svm, logratio ~ range, data=lidar, kernel='radial',
+              ranges = train.grid, tunecontrol = ctrl)
+# summary(tuned)
+best.svm <- tuned$best.model
+summary(best.svm)
+lidar$yhat <- predict(best.svm)
+
+ggplot(lidar, aes(x=range)) +
+  geom_point(aes(y=logratio)) +
+  geom_line(aes(y=yhat), color='red')
+```

@@ -1,0 +1,76 @@
+---
+output:
+  html_document: default
+  pdf_document: 
+    keep_tex: yes
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+Let us consider a very elementary dataset, the squares of the whole numbers from $0$ to $10.$ We want to use these values to train a `neuralnet` function in `R` that will learn the rule of squares.
+
+We begin by loading the library and the data.
+
+```{r}
+library("neuralnet")
+# Read the data
+mydata=read.csv('squares.csv',sep=",",header=TRUE)
+mydata
+attach(mydata)
+names(mydata)
+```
+
+## Train the network
+
+Our objective is to calculate the weights and the bias of a network that knows how to compute squares. The arguments for the `neuralnet` function are:
+
+- the column names of inputs and outputs,
+- the number of neurons in the hidden layer,
+- the stopping criterion `threshold`. 
+
+```{r}
+# Train the model from the inputs, based on the (known) output
+model=neuralnet(formula = Output~Input, 
+                data = mydata, 
+                hidden=10, 
+                threshold=0.01 )
+print(model)
+```
+
+## Plot the network
+
+```{r}
+plot(model, rep="best")
+```
+
+## Verify the network:  actual values vs. predicted values
+
+```{r}
+final_output=cbind (Input, Output, 
+                    as.data.frame(model$net.result) )
+colnames(final_output) = c("Input", "Expected Output", 
+                           "Neural Net Output" )
+print(final_output)
+```
+
+## Conclusion
+
+The network has learned extremely well the rule of squares, from a relatively small set of training data.
+
+## Save and reuse the learned MLP model
+
+```{r save_reuse}
+saveRDS(model, "model.rds")
+# the next day...
+saved_model <- readRDS("model.rds")
+# predict the square of 20
+new_data <- 20
+new_predict <- predict(saved_model, new_data)
+```
+
+
+
+
