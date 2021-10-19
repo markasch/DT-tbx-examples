@@ -69,7 +69,7 @@ test_set  <- iris[ test.index,]
 
 ## Scale the features and fit the models
 
-It is often advisable to scale the data before fitting the models, especially when the features have very diffrent magnitudes. For the iris data this is not really necessary (though the reader should try, by uncommenting the first 2 lines). Following the analysis of the previous Example \ref{ex:iris-svm-feature}, we examine both the 2-parameter model and the full model containing all $4$ parameters..
+It is often advisable to scale the data before fitting the models, especially when the features have very diffrent magnitudes. For the iris data this is not really necessary (though the reader should try, by uncommenting the first 2 lines). Following the analysis of the previous Example \ref{ex:iris-svm-feature}, we examine both the 2-parameter model and the full model containing all $4$ parameters.
 
 We first compute a model with a linear kernel---note that the default for `svm` is the radial kernel.
 

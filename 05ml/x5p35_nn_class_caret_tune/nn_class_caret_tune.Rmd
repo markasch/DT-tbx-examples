@@ -1,0 +1,166 @@
+---
+title:
+output:
+  pdf_document:
+    keep_tex: yes
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+We use the Iris Data Set  downloaded from the kaggle site [][https://www.kaggle.com/uciml/iris]. 
+
+Step1: Read in the required packages and data.
+```{r, message = FALSE}
+#Load required packages
+library(neuralnet)
+library(caret)
+library(reshape2)
+library(ggplot2)
+library(stringr)
+#Read  data
+irisData <- read.csv(file="iris.csv", head = TRUE, sep = ",")
+```
+
+Step 2: (EDA) Inspect the data.
+```{r}
+#Get a summary of the data
+summary(irisData)
+str(irisData)
+```
+
+Step 3: (EDA) Check the data for any missing values. There are multiple ways to do this but. Here, we use the `colsums` function to determine how many missing values are in each column, if any.
+```{r}
+#Compute total number of NA values in each column. Note, this  will be tricked if there are dummy values standing in for true missing data. 
+colSums(is.na(irisData))
+```
+
+
+Step 4: Perform any required data cleaning. Here, we remove the "Iris-" from the species column. Otherwise, if left in,  could cause difficulties in constructing the model formula automatically.
+```{r}
+irisData$Species <- str_replace(irisData$Species, "Iris-","")
+```
+
+Step 5: Look at the data graphically, to choose the best predictors for a model. 
+```{r}
+ggplot(irisData, aes(SepalLengthCm, SepalWidthCm, color = Species)) + geom_point()
+ggplot(irisData, aes(PetalLengthCm, PetalWidthCm, color = Species)) + geom_point()
+```
+
+Step 6: To use the measurements in the neural network, it is indispensible to normalize or scale them. If it is not scaled, the model will either be difficult to train---will niot converge---or will result in uninterpretable results. We only scale the feature columns. 
+```{r}
+irisData[,2:5] <- scale(irisData[,2:5])
+```
+
+Step 7: Because the `neuralnet`  method within `caret` does not accept factors, the outcome variable needs to be adjusted. We use the `cbind` command to perform one-hot encoding, thus adding 3 columns with transformations of the outcome variable into target vectors. 
+```{r}
+irisData <- cbind(irisData, model.matrix(~ 0 + Species, irisData))
+# check the one-hot encoding
+head(irisData[,6:9])
+tail(irisData[,6:9])
+```
+
+Step 8: Split the data into training and testing data in the proportion 75%  for training and 25% for testing.
+```{r}
+#set the seed to get reproducible results
+set.seed(12345)
+inTrain <- createDataPartition(y=irisData$Species, p=0.75, list=FALSE)
+train.set <- irisData[inTrain,]
+test.set  <- irisData[-inTrain,]
+```
+
+Step 9: Create the model formula. 
+```{r}
+#Get the variable names for the input and output
+predictorVars <- names(irisData)[2:5]
+outcomeVars   <- names(irisData)[7:9]
+#Paste together the formula 
+modFormula <- as.formula(paste(paste(outcomeVars, collapse = "+"),
+                               "~", paste(predictorVars, collapse = " + ")))
+modFormula
+```
+
+Step 10: Train the network. There are no fixed rules for the hyperparameters, threshold, steps and hidden layers. These can be tuned in order to improve the network performance. 
+```{r}
+irisNNet <- neuralnet(formula = modFormula, 
+                     data = train.set, 
+                     hidden = c(4), 
+                     linear.output = FALSE, 
+                     threshold = .05, 
+                     stepmax = 5000)
+```
+
+Step 11: See how well the network did by computing its classification accuracy.
+```{r}
+classes <- compute(irisNNet, test.set)
+#Get the classification results out of classes
+classRes <- classes$net.result
+#Using the apply funciton in conjunction with the 'which.max' function to get the max index 
+#for each row of the classRes matrix and the test rows of original data
+nnClass <- apply(classRes, MARGIN = 1, which.max)
+origClass <- apply(test.set[, c(7:9)], MARGIN = 1, which.max)  
+#Compute the percentage of correct classification for the neural network: 
+# 'round' is testing pr > 0.5 ?
+# 'mean' gives the probability of each class
+# '100' gives the percentage
+paste("The classification accuracy of the network is", 
+      round(mean(nnClass == origClass) * 100, digits = 2), "%")
+```
+
+
+Although these seem like good results this may simply be a result of the partition into training and testing data, so it is important to test the model performance further. We manually perform k-fold cross validation using 10 folds (10 fold cross-validation).
+
+Step 12: Validate the Model
+```{r}
+#Compute the testing indices using the createFolds function of caret
+folds <- createFolds(irisData$Species, k = 10)
+#'results' is a vector that will contain the accuracy for each fold
+# of the network training and testing
+results <- c()
+for (fld in folds){
+  # train the network 
+  nn <- neuralnet(formula = modFormula, data = irisData[-fld,], hidden = c(4), 
+                  linear.output = FALSE, threshold = .05, stepmax = 5000)
+  # extract the classifications from the network
+  classes <- compute(nn, irisData[fld ,-c(1,6:9)])
+  # check the accuracy of the network using the same procedure as above
+  classRes <- classes$net.result
+  nnClass <- apply(classRes, MARGIN = 1, which.max)
+  origClass <- apply(irisData[fld , c(7:9)], MARGIN = 1, which.max)  
+  results <- c(results, mean(nnClass == origClass) * 100)
+} 
+# outoput the result
+paste("After", length(results), 
+      "validation loops the mean accuracy of the network is", 
+      paste0(round(mean(results),2), "%"))
+```
+
+CV using the `caret` package.
+
+```{r caret_CV}
+# Define the tuning grid
+grid <-  expand.grid(size=c(2,4), decay=2^(-3:-1))
+# define the CV strategy
+tr.nnet <- trainControl(method = "cv",
+                        number = 5,
+                        verboseIter = TRUE)
+# Train with `caret` 
+nn1 <- train(Species ~., #formula = modFormula, 
+            data = train.set[,1:6], 
+            method="nnet",#method = "neuralnet", 
+            tuneGrid = grid,
+            preProc = c("center", "scale", "nzv"), 
+            trControl = tr.nnet)
+# display best model
+nn1
+# predict and display confusion matrix
+pred_nnet <- predict(nn1,test.set)
+table(pred_nnet, test.set$Species)
+```
+
+The predictive precision is excellent! 
+
+We could also tune and cross-validate with the `neuralnet` method that provides more options for the network architecture.
