@@ -6,8 +6,16 @@ Here you will find **ALL** the examples from the [book](https://www.siam.org/pub
 - [Chapter 1](01intro). An Introduction to Digital Twins
 - [Chapter 2](02proba). Probability and Statistics
 - [Chapter 3](03sim). Model Simulation
+- [Chapter 4](04opt). Optimization
+- [Chapter 5](05ml). Machine Learning
+- [Chapter 6](06fda). Functional Data Analysis
+- [Chapter 7](07ctrl). Controllability, Observability and Identifiability
+- [Chapter 8](08inv). Inverse Problems
+- [Chapter 9](09da). Data Assimilation
+- [Chapter 10](10rom). Reduced Order Methods
+- [Chapter 11](11uq). Bayes and Uncertainty Quantification
+- [Chapter 12](12caus). Causality
 
-etc., etc.
 
 
 
